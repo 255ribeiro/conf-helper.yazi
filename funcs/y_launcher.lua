@@ -127,6 +127,65 @@ local function ensure_parent(path, is_win)
 	end
 end
 
+-- ─── line-level block helpers ────────────────────────────────────────────────
+
+local function split_lines(content)
+	local result = {}
+	local normalized = content:gsub("\r\n", "\n"):gsub("\r", "\n")
+	local pos = 1
+	while pos <= #normalized do
+		local nl = normalized:find("\n", pos, true)
+		if nl then
+			table.insert(result, normalized:sub(pos, nl - 1))
+			pos = nl + 1
+		else
+			table.insert(result, normalized:sub(pos))
+			break
+		end
+	end
+	return result
+end
+
+-- Returns the line index where the block starting at start_idx ends.
+-- For brace-delimited shells (powershell/bash/zsh) it counts { }.
+-- For fish it counts function/if/while/for/begin/switch vs end keywords.
+-- Comment-only lines (starting with #) are skipped for brace counting.
+local function find_block_end_line(lines, start_idx, shell_key)
+	if shell_key == "powershell" or shell_key == "bash" or shell_key == "zsh" then
+		local depth = 0
+		for i = start_idx, #lines do
+			local line = lines[i]
+			if not line:match("^%s*#") then
+				for ci = 1, #line do
+					local c = line:sub(ci, ci)
+					if c == "{" then
+						depth = depth + 1
+					elseif c == "}" then
+						depth = depth - 1
+						if depth == 0 then return i end
+					end
+				end
+			end
+		end
+	elseif shell_key == "fish" then
+		local depth = 0
+		for i = start_idx, #lines do
+			local t = lines[i]:match("^%s*(%S.*)")
+			if t then
+				if t:match("^function%s") or t:match("^if%s") or
+				   t:match("^while%s")    or t:match("^for%s") or
+				   t:match("^begin%s*$")  or t:match("^switch%s") then
+					depth = depth + 1
+				elseif t:match("^end%s*$") then
+					depth = depth - 1
+					if depth == 0 then return i end
+				end
+			end
+		end
+	end
+	return nil
+end
+
 -- ─── WSL detection ───────────────────────────────────────────────────────────
 
 local function wsl_version()
@@ -206,17 +265,63 @@ local function write_wrapper(path, content, append)
 end
 
 local function do_replace(path, existing, shell_key, cfg)
-	local new_content
-	if shell_key == "powershell" then
-		new_content = existing:gsub("function y %{.-\n%}", cfg.content:match("^(.-)%s*$"), 1)
-	elseif shell_key == "fish" then
-		new_content = existing:gsub("function y\n.-\nend\n", cfg.content, 1)
-	elseif shell_key == "cmd" then
-		new_content = existing -- bat: fall through to append
-	else
-		new_content = existing:gsub("function y%(%).-\n%}\n", cfg.content, 1)
+	-- CMD bat files have no reliable block structure; always append.
+	if shell_key == "cmd" then
+		local ok = write_file(path, existing .. "\n" .. cfg.content, false)
+		ya.notify {
+			title   = "y_launcher",
+			content = ok and ("Appended `y` to " .. path) or ("Failed to write " .. path),
+			level   = ok and "info" or "error",
+			timeout = 5,
+		}
+		return
 	end
-	if new_content == existing then new_content = existing .. "\n" .. cfg.content end
+
+	local lines     = split_lines(existing)
+	local start_idx = nil
+	for i, line in ipairs(lines) do
+		local trimmed = line:match("^%s*(.-)%s*$")
+		-- Skip comment lines so a marker in a comment doesn't match.
+		local is_comment = trimmed:match("^#") ~= nil
+		if not is_comment then
+			local pos = line:find(cfg.marker, 1, true)
+			if pos then
+				-- For fish, guard against 'function yellow' matching 'function y'.
+				if shell_key == "fish" then
+					local after = line:sub(pos + #cfg.marker)
+					if after == "" or after:match("^%s") then
+						start_idx = i; break
+					end
+				else
+					start_idx = i; break
+				end
+			end
+		end
+	end
+
+	local new_content
+	if start_idx then
+		local end_idx = find_block_end_line(lines, start_idx, shell_key)
+		if end_idx then
+			local new_wrapper = split_lines(cfg.content)
+			while new_wrapper[1] == "" do table.remove(new_wrapper, 1) end
+			while #new_wrapper > 0 and new_wrapper[#new_wrapper] == "" do
+				table.remove(new_wrapper)
+			end
+			local parts = {}
+			for i = 1, start_idx - 1      do table.insert(parts, lines[i])       end
+			for _, l   in ipairs(new_wrapper) do table.insert(parts, l)           end
+			for i = end_idx + 1, #lines    do table.insert(parts, lines[i])       end
+			new_content = table.concat(parts, "\n")
+			if new_content:sub(-1) ~= "\n" then new_content = new_content .. "\n" end
+		end
+	end
+
+	-- Fallback: append when block boundaries could not be found.
+	if not new_content then
+		new_content = existing .. "\n" .. cfg.content
+	end
+
 	local ok = write_file(path, new_content, false)
 	ya.notify {
 		title   = "y_launcher",
