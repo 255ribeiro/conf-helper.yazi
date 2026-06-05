@@ -15,7 +15,7 @@ A growing collection of Yazi configuration helpers, bundled as a single plugin w
 
 **Via `ya pkg` (recommended):**
 ```sh
-ya pkg add 255ribeio/conf-helper
+ya pkg add 255ribeiro/conf-helper
 ```
 
 **Manual:**
