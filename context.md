@@ -113,7 +113,7 @@ return M
     id   = "my_func",
     key  = "m",
     desc = "my_func — What it does",
-    mod  = "funcs.my_func",   -- dot notation, not slash
+    mod  = "funcs.my_func",
 },
 ```
 

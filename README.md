@@ -153,7 +153,7 @@ return M
     id   = "my_func",
     key  = "m",           -- key shown in the menu
     desc = "my_func — What it does",
-    mod  = "funcs/my_func",
+    mod  = "funcs.my_func",
 },
 ```
 

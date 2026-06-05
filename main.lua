@@ -1,8 +1,8 @@
 --- @since 25.2.13
 -- conf_helper: A growing collection of Yazi configuration helpers.
 --
--- Usage (menu):   plugin conf_helper
--- Usage (direct): plugin conf_helper -- <function_name>
+-- Usage (menu):   plugin conf-helper
+-- Usage (direct): plugin conf-helper -- <function_name>
 --
 -- Available functions:
 --   y_launcher    — Install the `y` shell wrapper into your shell profile
