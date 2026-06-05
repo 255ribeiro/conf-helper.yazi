@@ -13,13 +13,13 @@ local FUNCS = {
 		id    = "y_launcher",
 		key   = "y",
 		desc  = "y_launcher    — Install the `y` shell wrapper",
-		mod   = "funcs/y_launcher",
+		mod   = "funcs.y_launcher",
 	},
 	{
 		id    = "yazi_file_one",
 		key   = "f",
 		desc  = "yazi_file_one — Set YAZI_FILE_ONE from Git install (Windows only)",
-		mod   = "funcs/yazi_file_one",
+		mod   = "funcs.yazi_file_one",
 	},
 }
 
@@ -30,8 +30,14 @@ return {
 		if arg then
 			for _, fn in ipairs(FUNCS) do
 				if fn.id == arg then
-					local mod = require(fn.mod)
-					return mod.run()
+					local ok, err = pcall(function()
+						local mod = require(fn.mod)
+						mod.run()
+					end)
+					if not ok then
+						ya.notify { title = "conf_helper", content = tostring(err), level = "error", timeout = 8 }
+					end
+					return
 				end
 			end
 			ya.notify {
@@ -61,8 +67,13 @@ return {
 		-- "q" is always the last entry
 		if choice == #cands then return end
 
-		local fn  = FUNCS[choice]
-		local mod = require(fn.mod)
-		mod.run()
+		local fn = FUNCS[choice]
+		local ok, err = pcall(function()
+			local mod = require(fn.mod)
+			mod.run()
+		end)
+		if not ok then
+			ya.notify { title = "conf_helper", content = tostring(err), level = "error", timeout = 8 }
+		end
 	end,
 }
