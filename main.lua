@@ -1,5 +1,5 @@
 --- @since 25.2.13
--- conf_helper: A growing collection of Yazi configuration helpers.
+-- conf-helper: A growing collection of Yazi configuration helpers.
 --
 -- Usage (menu):   plugin conf-helper
 -- Usage (direct): plugin conf-helper -- <function_name>
@@ -25,55 +25,53 @@ local FUNCS = {
 
 return {
 	entry = function(self, job)
-		-- Direct call: plugin conf_helper -- <function_name>
-		local arg = job.args and job.args[1]
-		if arg then
-			for _, fn in ipairs(FUNCS) do
-				if fn.id == arg then
-					local ok, err = pcall(function()
+		local ok, err = pcall(function()
+			-- Direct call: plugin conf-helper -- <function_name>
+			local arg = job.args and job.args[1]
+			if arg then
+				for _, fn in ipairs(FUNCS) do
+					if fn.id == arg then
 						local mod = require(fn.mod)
 						mod.run()
-					end)
-					if not ok then
-						ya.notify { title = "conf_helper", content = tostring(err), level = "error", timeout = 8 }
+						return
 					end
-					return
 				end
+				local ids = {}
+				for _, f in ipairs(FUNCS) do table.insert(ids, f.id) end
+				ya.notify {
+					title   = "conf-helper",
+					content = "Unknown function: '" .. arg .. "'\nAvailable: " .. table.concat(ids, ", "),
+					level   = "error",
+					timeout = 8,
+				}
+				return
 			end
-			ya.notify {
-				title   = "conf_helper",
-				content = "Unknown function: '" .. arg .. "'\n"
-					.. "Available: " .. table.concat((function()
-						local t = {}
-						for _, f in ipairs(FUNCS) do table.insert(t, f.id) end
-						return t
-					end)(), ", "),
-				level   = "error",
-				timeout = 8,
-			}
-			return
-		end
 
-		-- Menu mode: show available functions
-		local cands = {}
-		for _, fn in ipairs(FUNCS) do
-			table.insert(cands, { on = fn.key, desc = fn.desc })
-		end
-		table.insert(cands, { on = "q", desc = "quit" })
+			-- Menu mode: show available functions
+			local cands = {}
+			for _, fn in ipairs(FUNCS) do
+				table.insert(cands, { on = fn.key, desc = fn.desc })
+			end
+			table.insert(cands, { on = "q", desc = "quit" })
 
-		local choice = ya.which { cands = cands, silent = false }
-		if not choice then return end
+			local choice = ya.which { cands = cands }
+			if not choice then return end
 
-		-- "q" is always the last entry
-		if choice == #cands then return end
+			-- "q" is always the last entry
+			if choice == #cands then return end
 
-		local fn = FUNCS[choice]
-		local ok, err = pcall(function()
+			local fn  = FUNCS[choice]
 			local mod = require(fn.mod)
 			mod.run()
 		end)
+
 		if not ok then
-			ya.notify { title = "conf_helper", content = tostring(err), level = "error", timeout = 8 }
+			ya.notify {
+				title   = "conf-helper",
+				content = tostring(err),
+				level   = "error",
+				timeout = 10,
+			}
 		end
 	end,
 }
