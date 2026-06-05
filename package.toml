@@ -1,0 +1,14 @@
+[package]
+name        = "conf-helper"
+version     = "0.1.0"
+description = "A growing collection of Yazi configuration helpers"
+authors     = [""]
+license     = "MIT"
+repository  = "https://github.com/255ribeiro/conf-helper.yazi"
+keywords    = ["config", "setup", "shell", "wrapper", "windows"]
+
+# Minimum Yazi version required
+yazi        = ">=0.4.0"
+
+[dependencies]
+# No external plugin dependencies
